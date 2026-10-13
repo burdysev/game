@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Башни — Мета-прогрессия</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+  html,body{
+    width:100%;height:100%;height:100dvh;overflow:hidden;
+    background:#000;color:#fff;
+    font-family:-apple-system,'Segoe UI',Roboto,sans-serif;
+    touch-action:none;position:fixed;
+    display:flex;flex-direction:column;
+  }
+  .topbar{
+    flex:0 0 auto;display:flex;justify-content:space-around;align-items:center;
+    padding:6px 6px;background:linear-gradient(180deg,#1a0505,#000);
+    border-bottom:1px solid #330000;font-weight:700;font-size:14px;min-height:42px;
+    gap:4px;
+  }
+  .topbar>div{display:flex;align-items:center;gap:3px;padding:4px 8px;border-radius:6px;background:rgba(255,0,0,.08);border:1px solid rgba(255,0,0,.15);flex:1;justify-content:center;min-width:0}
+  .topbar .lbl{font-size:11px;opacity:.7;margin-right:2px}
+  #money{color:#ffd700}
+  #bank{color:#66e0ff}
+  #lives{color:#ff2222;animation:heartbeat 0.9s infinite}
+  @keyframes heartbeat{0%,100%{transform:scale(1)}50%{transform:scale(1.25)}}
+  #wave{color:#ff5555;text-shadow:0 0 8px rgba(255,50,50,.8)}
+  .wrap{flex:1 1 auto;position:relative;overflow:hidden;min-height:0}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+  .bottombar{
+    flex:0 0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;
+    padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px));
+    background:linear-gradient(0deg,#1a0505,#000);
+    border-top:1px solid #330000;
+  }
+  .card{
+    background:#1a0808;border:2px solid #3a1010;border-radius:12px;
+    padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;
+    font-family:inherit;color:#fff;min-height:72px;justify-content:center;
+    cursor:pointer;touch-action:manipulation;
+  }
+  .card:active{transform:scale(.94)}
+  .card.selected{border-color:#ff2222;background:#2a0808;box-shadow:0 0 20px rgba(255,30,30,.7)}
+  .card.disabled{opacity:.3;filter:grayscale(1)}
+  .c-icon{font-size:22px;line-height:1}
+  .c-name{font-size:10px;color:#c9d1d9;font-weight:600;text-align:center;line-height:1.1}
+  .c-cost{font-size:11px;color:#ffd700;font-weight:800}
+  .card.wave{background:linear-gradient(180deg,#ff0000,#550000);border-color:#ff2222;animation:waveGlow 1.5s infinite}
+  @keyframes waveGlow{
+    0%,100%{box-shadow:0 0 0 0 rgba(255,0,0,.8),inset 0 0 10px rgba(255,0,0,.3)}
+    50%{box-shadow:0 0 20px 4px rgba(255,0,0,.6),inset 0 0 20px rgba(255,100,100,.5)}
+  }
+  .card.wave .c-name{color:#fff}
+  .card.wave .c-cost{color:#ffcccc}
+  .overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.97);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:12px;padding:20px;text-align:center;z-index:100;
+    overflow-y:auto;
+  }
+  .overlay.hide{display:none}
+  .overlay h1{
+    color:#ff0000;font-size:26px;
+    text-shadow:0 0 30px rgba(255,0,0,1),0 0 60px rgba(255,0,0,.6);
+    letter-spacing:2px;
+    animation:titleShake 0.5s infinite;
+  }
+  @keyframes titleShake{
+    0%,100%{transform:translate(0,0)}
+    25%{transform:translate(-1px,1px)}
+    50%{transform:translate(1px,-1px)}
+    75%{transform:translate(-1px,-1px)}
+  }
+  .overlay p{color:#c9d1d9;font-size:14px;line-height:1.5;max-width:320px}
+  .overlay p b{color:#ff5555}
+  .overlay .info{
+    color:#8b949e;font-size:11px;background:#0a0000;
+    padding:10px 14px;border-radius:10px;border-left:3px solid #ff0000;
+    text-align:left;line-height:1.65;max-width:340px;
+  }
+  .overlay .info b{color:#ff5555}
+  .overlay .info .red{color:#ff2222;font-weight:bold}
+  #bankBox{
+    background:linear-gradient(135deg,rgba(102,224,255,.12),rgba(102,224,255,.04));
+    border:1px solid rgba(102,224,255,.35);
+    border-radius:10px;padding:10px 18px;max-width:340px;
+    display:flex;flex-direction:column;gap:4px;
+  }
+  #bankBox .title{color:#66e0ff;font-size:11px;letter-spacing:2px;font-weight:700;opacity:.8}
+  #bankBox .amount{color:#66e0ff;font-size:24px;font-weight:900;text-shadow:0 0 12px rgba(102,224,255,.6)}
+  #bankBox .hint{color:#8b949e;font-size:10px;line-height:1.4;margin-top:2px}
+  #bankBox .hint b{color:#66e0ff}
+  .bank-result{
+    background:rgba(0,0,0,.5);border-radius:10px;padding:12px 18px;
+    max-width:340px;width:100%;
+    border-left:3px solid #ffd700;
+  }
+  .bank-result .row{
+    display:flex;justify-content:space-between;
+    font-size:12px;color:#c9d1d9;padding:3px 0;
+  }
+  .bank-result .row .val{font-weight:800}
+  .bank-result .row.total{
+    border-top:1px solid rgba(255,215,0,.3);
+    margin-top:6px;padding-top:8px;
+    font-size:14px;color:#ffd700;
+  }
+  #startBtn{
+    padding:14px 40px;font-size:16px;font-weight:800;
+    color:#fff;background:linear-gradient(180deg,#ff0000,#4a0000);
+    border:none;border-radius:12px;font-family:inherit;letter-spacing:2px;
+    box-shadow:0 5px 0 #1a0000,0 0 30px rgba(255,0,0,.6);
+    cursor:pointer;touch-action:manipulation;
+  }
+  #startBtn:active{transform:translateY(3px);box-shadow:0 2px 0 #1a0000,0 0 20px rgba(255,0,0,.4)}
+  #resetBtn{
+    padding:6px 16px;font-size:10px;font-weight:600;
+    color:#666;background:transparent;
+    border:1px solid #333;border-radius:8px;
+    font-family:inherit;letter-spacing:1px;cursor:pointer;
+    touch-action:manipulation;margin-top:4px;
+  }
+  #resetBtn:active{background:#1a0000;color:#999}
+  @media (max-width:400px){
+    .topbar{font-size:12px}
+    .topbar>div{padding:3px 5px}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div><span>💰</span><span id="money">70</span></div>
+  <div><span>🏦</span><span id="bank">0</span></div>
+  <div><span>❤️</span><span id="lives">3</span></div>
+  <div><span>🌊</span><span id="wave">0</span></div>
+</div>
+
+<div class="wrap"><canvas id="c"></canvas></div>
+
+<div class="bottombar">
+  <button class="card" data-type="arrow" type="button">
+    <span class="c-icon">🏹</span><span class="c-name">Стрелок</span><span class="c-cost">70</span>
+  </button>
+  <button class="card" data-type="frost" type="button">
+    <span class="c-icon">❄️</span><span class="c-name">Мороз</span><span class="c-cost">100</span>
+  </button>
+  <button class="card" data-type="cannon" type="button">
+    <span class="c-icon">💣</span><span class="c-name">Пушка</span><span class="c-cost">150</span>
+  </button>
+  <button class="card wave" id="waveBtn" type="button">
+    <span class="c-icon">▶</span><span class="c-name">Волна</span><span class="c-cost" id="waveBonus">СТАРТ</span>
+  </button>
+</div>
+
+<div class="overlay" id="ov">
+  <h1 id="ovTitle">🔥 НЕВОЗМОЖНО</h1>
+  <p id="ovText">Режим для тех, кто ненавидит себя</p>
+  <div id="bankBox">
+    <div class="title">🏦 НАКОПЛЕНИЯ</div>
+    <div class="amount" id="bankAmount">0</div>
+    <div class="hint">Деньги <b>переносятся</b> между играми.<br>
+    После проигрыша остаток + бонус за волны идут в банк.</div>
+  </div>
+  <div class="info" id="ovInfo">
+    • <b>3 жизни</b>, старт <span class="red">70💰 + банк</span><br>
+    • Враги жирнее в <b>3 раза</b><br>
+    • <span class="red">65% танков</span> (×5 HP, броня 35%)<br>
+    • <b>БОСС каждые 2 волны</b> (×12 HP, −3 жизни)<br>
+    • <b>+10💰 в банк</b> за каждую волну<br>
+    • <span class="red">Удачи. Она понадобится.</span>
+  </div>
+  <button id="startBtn" type="button">ПОПРОБОВАТЬ</button>
+  <button id="resetBtn" type="button">СБРОСИТЬ БАНК</button>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+var canvas = document.getElementById('c');
+var ctx = canvas.getContext('2d');
+var W=0,H=0,dpr=1,CELL=0,OX=0,OY=0;
+var COLS=10, ROWS=14;
+
+/* ============ BANK (мета-прогрессия) ============ */
+var BANK_KEY = 'towerDefenseBank_v1';
+var bank = 0;
+
+function loadBank(){
+  try {
+    var v = localStorage.getItem(BANK_KEY);
+    if (v === null){ bank = 0; }
+    else { bank = parseInt(v, 10) || 0; }
+    if (bank < 0) bank = 0;
+  } catch(e){ bank = 0; }
+}
+
+function saveBank(){
+  try { localStorage.setItem(BANK_KEY, String(bank)); } catch(e){}
+}
+
+function updateBankUI(){
+  var b = document.getElementById('bank');
+  if (b) b.textContent = bank;
+  var ba = document.getElementById('bankAmount');
+  if (ba) ba.textContent = bank + '💰';
+}
+
+/* ============ RESIZE ============ */
+function resize(){
+  var wrap = canvas.parentElement;
+  W = wrap.clientWidth || window.innerWidth;
+  H = wrap.clientHeight || (window.innerHeight - 150);
+  if (W < 10) W = window.innerWidth;
+  if (H < 10) H = window.innerHeight - 150;
+  dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(W*dpr);
+  canvas.height = Math.floor(H*dpr);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.imageSmoothingEnabled = false;
+  CELL = Math.min(W/COLS, H/ROWS);
+  OX = (W - CELL*COLS)/2;
+  OY = (H - CELL*ROWS)/2;
+}
+
+var PATH = [
+  [0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],[7,1],
+  [7,2],[7,3],[7,4],
+  [6,4],[5,4],[4,4],[3,4],[2,4],
+  [2,5],[2,6],[2,7],
+  [3,7],[4,7],[5,7],[6,7],[7,7],
+  [7,8],[7,9],[7,10],
+  [6,10],[5,10],[4,10],[3,10],[2,10],
+  [2,11],[2,12],[2,13],
+  [3,13],[4,13],[5,13],[6,13],[7,13],[8,13],[9,13]
+];
+var PATH_SET = {};
+PATH.forEach(function(c){ PATH_SET[c[0]+','+c[1]] = true; });
+
+/* ============ TOWERS ============ */
+var DEFS = {
+  arrow:  { name:'Стрелок', cost:70,  damage:12, range:2.5, rate:0.5, color:'#4a9eff', proj:'#88ccff', icon:'🏹' },
+  frost:  { name:'Мороз',   cost:100, damage:5,  range:2.5, rate:0.8, color:'#66e0ff', proj:'#ccf4ff', icon:'❄',  slow:0.3, slowDur:1.2 },
+  cannon: { name:'Пушка',   cost:150, damage:35, range:2.0, rate:1.5, color:'#ff9040', proj:'#ffcc66', icon:'💣', splash:1.0 }
+};
+
+var state = 'idle';
+var money, lives, wave, enemies, towers, effects, parts;
+var spawnQueue, spawnTimer, waveActive;
+var selected = 'arrow';
+var rafId = null, lastT = 0;
+
+/* ============ RESET ============ */
+function resetGame(){
+  money = 70 + bank;  // базовые 70 + накопления
+  lives = 3; wave = 0;
+  enemies = []; towers = []; effects = []; parts = [];
+  spawnQueue = []; spawnTimer = 0; waveActive = false;
+  selected = 'arrow';
+  hud(); cards();
+}
+
+function hud(){
+  document.getElementById('money').textContent = money;
+  document.getElementById('lives').textContent = lives;
+  document.getElementById('wave').textContent = wave;
+  document.getElementById('bank').textContent = bank;
+}
+
+function cards(){
+  var list = document.querySelectorAll('.card[data-type]');
+  for (var i = 0; i < list.length; i++){
+    var t = list[i].getAttribute('data-type');
+    if (t === selected) list[i].classList.add('selected');
+    else list[i].classList.remove('selected');
+    if (money < DEFS[t].cost) list[i].classList.add('disabled');
+    else list[i].classList.remove('disabled');
+  }
+  var wb = document.getElementById('waveBtn');
+  if (!waveActive && state === 'playing'){
+    wb.classList.add('pulse');
+    document.getElementById('waveBonus').textContent = '+' + (5 + wave);
+  } else {
+    wb.classList.remove('pulse');
+    document.getElementById('waveBonus').textContent = waveActive ? '...' : 'СТАРТ';
+  }
+}
+
+/* ============ WAVES ============ */
+function startWave(){
+  if (waveActive) return;
+  wave++;
+  if (wave > 1) money += 5 + wave;
+  var count = 8 + Math.floor(wave * 4);
+  var hp = 60 + (wave-1) * 55;
+  var baseSpeed = 1.1 + wave * 0.08;
+  var isBossWave = wave % 2 === 0;
+
+  spawnQueue = [];
+  if (isBossWave){
+    spawnQueue.push({ hp: hp * 12, boss: true });
+    if (wave >= 6) spawnQueue.push({ hp: hp * 12, boss: true });
+  }
+  for (var i = 0; i < count; i++){
+    spawnQueue.push({ hp: hp, speed: baseSpeed });
+  }
+  spawnTimer = 0;
+  waveActive = true;
+  hud(); cards();
+}
+
+function spawnEnemy(){
+  var data = spawnQueue.shift();
+  var isBoss = !!data.boss;
+  var rnd = Math.random();
+  var isTank = !isBoss && rnd < 0.65;
+  var isFast = !isBoss && !isTank && rnd < 0.9;
+
+  var hp = isBoss ? data.hp :
+           (isTank ? data.hp * 5 :
+           (isFast ? data.hp * 0.5 : data.hp));
+
+  var speed;
+  if (isBoss) speed = 0.45;
+  else if (isTank) speed = 0.5;
+  else if (isFast) speed = data.speed * 2.0;
+  else speed = data.speed * (0.9 + Math.random()*0.3);
+
+  var resist = isTank ? 0.35 : (isBoss ? 0.25 : 0);
+
+  var wp = wps();
+  enemies.push({
+    x: wp[0].x, y: wp[0].y,
+    wpIndex: 1,
+    hp: hp, maxHp: hp,
+    speed: speed,
+    slowUntil: 0, slowFactor: 1,
+    tank: isTank,
+    fast: isFast,
+    boss: isBoss,
+    resist: resist,
+    reward: isBoss ? 60 + wave*3 :
+            (isTank ? 12 + wave :
+            (isFast ? 6 + wave : 5 + wave)),
+    r: isBoss ? 0.6 : (isTank ? 0.45 : (isFast ? 0.25 : 0.3)),
+    hitFlash: 0
+  });
+}
+
+var WAYPOINTS = (function(){
+  var out = [PATH[0]];
+  for (var i = 1; i < PATH.length - 1; i++){
+    var a = PATH[i-1], b = PATH[i], c = PATH[i+1];
+    if (b[0]-a[0] !== c[0]-b[0] || b[1]-a[1] !== c[1]-b[1]) out.push(b);
+  }
+  out.push(PATH[PATH.length-1]);
+  return out;
+})();
+
+function wps(){
+  return WAYPOINTS.map(function(w){
+    return { x: OX + (w[0]+0.5)*CELL, y: OY + (w[1]+0.5)*CELL };
+  });
+}
+
+function updEnemies(dt){
+  var now = performance.now();
+  var wp = wps();
+
+  for (var i = enemies.length - 1; i >= 0; i--){
+    var e = enemies[i];
+    if (e.hitFlash > 0) e.hitFlash -= dt;
+    if (e.hp <= 0){ killEnemy(i, e); continue; }
+
+    var factor = now < e.slowUntil ? e.slowFactor : 1;
+    var speedPx = e.speed * CELL * factor;
+    var rem = speedPx * dt;
+
+    while (rem > 0 && e.wpIndex < wp.length){
+      var tgt = wp[e.wpIndex];
+      var dx = tgt.x - e.x, dy = tgt.y - e.y;
+      var d = Math.sqrt(dx*dx + dy*dy);
+      if (d <= rem){ e.x = tgt.x; e.y = tgt.y; e.wpIndex++; rem -= d; }
+      else { e.x += dx/d*rem; e.y += dy/d*rem; rem = 0; }
+    }
+
+    if (e.wpIndex >= wp.length){
+      enemies.splice(i, 1);
+      lives -= e.boss ? 3 : 1;
+      hud();
+      var ep = wp[wp.length-1];
+      for (var k = 0; k < (e.boss ? 40 : 20); k++){
+        var a = Math.random()*Math.PI*2;
+        parts.push({
+          x: ep.x, y: ep.y,
+          vx: Math.cos(a)*220, vy: Math.sin(a)*220,
+          life: 0.7, maxLife: 0.7,
+          color: e.boss ? '#ff00aa' : '#ff0000',
+          size: e.boss ? 9 : 6
+        });
+      }
+      if (lives <= 0) gameOver();
+    }
+  }
+}
+
+function killEnemy(idx, e){
+  enemies.splice(idx, 1);
+  money += e.reward;
+  hud(); cards();
+  var count = e.boss ? 60 : (e.tank ? 20 : 12);
+  for (var k = 0; k < count; k++){
+    var a = Math.random()*Math.PI*2;
+    var s = Math.random()*240 + 60;
+    parts.push({
+      x: e.x, y: e.y,
+      vx: Math.cos(a)*s, vy: Math.sin(a)*s,
+      life: 0.6, maxLife: 0.6,
+      color: e.boss ? '#ffd700' : (e.fast ? '#ffee44' : '#ff4444'),
+      size: e.boss ? 8 : 5
+    });
+  }
+}
+
+function updTowers(dt){
+  for (var i = 0; i < towers.length; i++){
+    var t = towers[i];
+    t.cd -= dt;
+    if (t.cd > 0) continue;
+
+    var tx = OX + (t.col+0.5)*CELL;
+    var ty = OY + (t.row+0.5)*CELL;
+    var rangePx = t.range * CELL;
+    var r2 = rangePx * rangePx;
+
+    var best = null, bestScore = -Infinity;
+    for (var j = 0; j < enemies.length; j++){
+      var e = enemies[j];
+      if (e.hp <= 0) continue;
+      var dx = e.x - tx, dy = e.y - ty;
+      var d2 = dx*dx + dy*dy;
+      if (d2 > r2) continue;
+      var score = e.wpIndex * 1000000 - d2;
+      if (e.fast) score += 800000;
+      if (e.boss) score += 200000;
+      if (score > bestScore){ bestScore = score; best = e; }
+    }
+
+    if (!best) continue;
+    t.cd = t.rate;
+    t.angle = Math.atan2(best.y - ty, best.x - tx);
+
+    var def = DEFS[t.type];
+    var dmg = t.damage;
+
+    effects.push({
+      x1: tx, y1: ty, x2: best.x, y2: best.y,
+      life: 0.12, maxLife: 0.12,
+      color: def.proj, type: t.type
+    });
+
+    if (def.splash){
+      var sr = def.splash * CELL;
+      var sr2 = sr * sr;
+      for (var k = enemies.length - 1; k >= 0; k--){
+        var e2 = enemies[k];
+        var dx2 = e2.x - best.x, dy2 = e2.y - best.y;
+        if (dx2*dx2 + dy2*dy2 <= sr2){
+          e2.hp -= dmg * (1 - e2.resist);
+          e2.hitFlash = 0.15;
+        }
+      }
+      for (var k = 0; k < 16; k++){
+        var a = Math.random()*Math.PI*2;
+        var s = Math.random()*220 + 60;
+        parts.push({
+          x: best.x, y: best.y, vx: Math.cos(a)*s, vy: Math.sin(a)*s,
+          life: 0.4, maxLife: 0.4,
+          color: Math.random()<0.5 ? '#ffcc66' : '#ff5522', size: 5
+        });
+      }
+    } else {
+      best.hp -= dmg * (1 - best.resist);
+      best.hitFlash = 0.15;
+      if (def.slow){
+        best.slowUntil = performance.now() + def.slowDur*1000;
+        best.slowFactor = def.slow;
+      }
+      for (var k = 0; k < 5; k++){
+        var a = Math.random()*Math.PI*2;
+        parts.push({
+          x: best.x, y: best.y, vx: Math.cos(a)*110, vy: Math.sin(a)*110,
+          life: 0.3, maxLife: 0.3, color: def.proj, size: 3
+        });
+      }
+    }
+
+    for (var k = 0; k < 3; k++){
+      var a2 = t.angle + (Math.random()-0.5)*0.6;
+      parts.push({
+        x: tx, y: ty, vx: Math.cos(a2)*130, vy: Math.sin(a2)*130,
+        life: 0.15, maxLife: 0.15, color: def.color, size: 3
+      });
+    }
+  }
+}
+
+function updEffects(dt){
+  for (var i = effects.length - 1; i >= 0; i--){
+    effects[i].life -= dt;
+    if (effects[i].life <= 0) effects.splice(i, 1);
+  }
+}
+
+function updParts(dt){
+  for (var i = parts.length - 1; i >= 0; i--){
+    var p = parts[i];
+    p.x += p.vx*dt; p.y += p.vy*dt;
+    p.vx *= 0.9; p.vy *= 0.9;
+    p.life -= dt;
+    if (p.life <= 0) parts.splice(i, 1);
+  }
+}
+
+function draw(){
+  ctx.fillStyle = '#0a0000';
+  ctx.fillRect(0, 0, W, H);
+
+  var pulse = 0.08 + Math.sin(performance.now()*0.002)*0.04;
+  ctx.fillStyle = 'rgba(80,0,0,' + pulse + ')';
+  ctx.fillRect(OX, OY, CELL*COLS, CELL*ROWS);
+
+  ctx.fillStyle = '#2a0a0a';
+  ctx.fillRect(OX, OY, CELL*COLS, CELL*ROWS);
+
+  ctx.strokeStyle = 'rgba(255,0,0,.06)';
+  ctx.lineWidth = 1;
+  for (var c = 0; c <= COLS; c++){
+    ctx.beginPath(); ctx.moveTo(OX + c*CELL, OY); ctx.lineTo(OX + c*CELL, OY + CELL*ROWS); ctx.stroke();
+  }
+  for (var r = 0; r <= ROWS; r++){
+    ctx.beginPath(); ctx.moveTo(OX, OY + r*CELL); ctx.lineTo(OX + CELL*COLS, OY + r*CELL); ctx.stroke();
+  }
+
+  for (var i = 0; i < PATH.length; i++){
+    var x = OX + PATH[i][0]*CELL;
+    var y = OY + PATH[i][1]*CELL;
+    ctx.fillStyle = '#2a1508';
+    ctx.fillRect(x, y, CELL, CELL);
+    ctx.fillStyle = 'rgba(255,80,40,.08)';
+    ctx.fillRect(x+3, y+3, CELL-6, CELL-6);
+  }
+
+  var wp = wps();
+  var sp = wp[0], ep = wp[wp.length-1];
+
+  ctx.fillStyle = 'rgba(255,0,0,.5)';
+  ctx.beginPath(); ctx.arc(sp.x, sp.y, CELL*0.4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = 'rgba(80,255,120,.35)';
+  ctx.beginPath(); ctx.arc(ep.x, ep.y, CELL*0.5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#79ff9c';
+  ctx.font = 'bold ' + Math.floor(CELL*0.55) + 'px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('🏰', ep.x, ep.y);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+
+  for (var i = 0; i < towers.length; i++){
+    var t = towers[i];
+    if (!t.selected) continue;
+    var tx = OX + (t.col+0.5)*CELL;
+    var ty = OY + (t.row+0.5)*CELL;
+    ctx.strokeStyle = 'rgba(255,60,60,.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.arc(tx, ty, t.range*CELL, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  for (var i = 0; i < effects.length; i++){
+    var ef = effects[i];
+    ctx.globalAlpha = (ef.life / ef.maxLife) * 0.9;
+    ctx.strokeStyle = ef.color;
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(ef.x1, ef.y1); ctx.lineTo(ef.x2, ef.y2); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  for (var i = 0; i < towers.length; i++) drawTower(towers[i]);
+  for (var i = 0; i < enemies.length; i++) drawEnemy(enemies[i]);
+
+  for (var i = 0; i < parts.length; i++){
+    var p = parts[i];
+    ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawTower(t){
+  var x = OX + t.col*CELL;
+  var y = OY + t.row*CELL;
+  var def = DEFS[t.type];
+  ctx.fillStyle = '#1a0a1a';
+  ctx.fillRect(x+3, y+3, CELL-6, CELL-6);
+  ctx.strokeStyle = def.color;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x+3, y+3, CELL-6, CELL-6);
+
+  for (var i = 0; i < t.level; i++){
+    ctx.fillStyle = '#ffd700';
+    ctx.fillRect(x + 6 + i*7, y + 5, 5, 4);
+  }
+  if (t.angle !== undefined){
+    ctx.save();
+    ctx.translate(x + CELL/2, y + CELL/2);
+    ctx.rotate(t.angle);
+    ctx.fillStyle = def.color;
+    ctx.fillRect(2, -3, CELL*0.42, 6);
+    ctx.restore();
+  }
+  ctx.fillStyle = def.color;
+  ctx.beginPath(); ctx.arc(x + CELL/2, y + CELL/2, CELL*0.22, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = Math.floor(CELL*0.32) + 'px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(def.icon, x + CELL/2, y + CELL/2);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+}
+
+function drawEnemy(e){
+  var r = e.r * CELL;
+  var slow = performance.now() < e.slowUntil;
+
+  ctx.fillStyle = 'rgba(0,0,0,.4)';
+  ctx.beginPath();
+  ctx.ellipse(e.x, e.y + r*0.9, r*0.9, r*0.35, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  var col;
+  if (e.hitFlash > 0) col = '#ffffff';
+  else if (slow) col = '#5599cc';
+  else if (e.boss) col = '#ff0088';
+  else if (e.fast) col = '#ffcc00';
+  else if (e.tank) col = '#550000';
+  else col = '#aa2222';
+
+  if (e.boss && e.hitFlash <= 0){
+    ctx.fillStyle = 'rgba(255,0,136,.4)';
+    ctx.beginPath(); ctx.arc(e.x, e.y, r*1.6, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,0,136,.2)';
+    ctx.beginPath(); ctx.arc(e.x, e.y, r*2.2, 0, Math.PI*2); ctx.fill();
+  }
+
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.arc(e.x, e.y, r, 0, Math.PI*2); ctx.fill();
+
+  ctx.strokeStyle = slow ? '#336688' :
+                    (e.boss ? '#aa0055' :
+                    (e.fast ? '#aa8800' :
+                    (e.tank ? '#220000' : '#660000')));
+  if (e.hitFlash > 0) ctx.strokeStyle = '#ffff88';
+  ctx.lineWidth = e.boss ? 4 : 2;
+  ctx.stroke();
+
+  if (e.tank && e.hitFlash <= 0){
+    ctx.strokeStyle = 'rgba(120,120,120,.7)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(e.x, e.y, r*0.82, 0, Math.PI*2); ctx.stroke();
+  }
+
+  if (e.hitFlash <= 0){
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(e.x - r*0.3, e.y - r*0.15, r*0.25, 0, Math.PI*2);
+    ctx.arc(e.x + r*0.3, e.y - r*0.15, r*0.25, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(e.x - r*0.28, e.y - r*0.12, r*0.12, 0, Math.PI*2);
+    ctx.arc(e.x + r*0.32, e.y - r*0.12, r*0.12, 0, Math.PI*2);
+    ctx.fill();
+
+    if (e.boss){
+      ctx.fillStyle = '#ffd700';
+      ctx.font = 'bold ' + Math.floor(r*1.6) + 'px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('💀', e.x, e.y - r - 5);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    } else if (e.fast){
+      ctx.fillStyle = '#ffee44';
+      ctx.font = 'bold ' + Math.floor(r*1.2) + 'px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('⚡', e.x, e.y - r - 2);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    } else if (e.tank){
+      ctx.fillStyle = '#cc4444';
+      ctx.font = 'bold ' + Math.floor(r*1.1) + 'px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('🛡', e.x, e.y - r - 2);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    }
+  }
+
+  var bw = r*2, bh = e.boss ? 7 : 5;
+  var bx = e.x - r, by = e.y - r - (e.boss ? 22 : (e.fast ? 12 : 11));
+  ctx.fillStyle = 'rgba(0,0,0,.8)';
+  ctx.fillRect(bx-1, by-1, bw+2, bh+2);
+  ctx.fillStyle = '#222';
+  ctx.fillRect(bx, by, bw, bh);
+  var pct = Math.max(0, Math.min(1, e.hp / e.maxHp));
+  ctx.fillStyle = pct > 0.5 ? '#4caf50' : (pct > 0.25 ? '#ff9800' : '#f44336');
+  ctx.fillRect(bx, by, bw * pct, bh);
+
+  if (slow){
+    ctx.fillStyle = '#ccf4ff';
+    ctx.font = Math.floor(r*1.3) + 'px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('❄', e.x, e.y + r*0.3);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  }
+}
+
+function loop(){
+  if (state === 'playing'){
+    var now = performance.now();
+    var dt = Math.min(0.05, (now - lastT)/1000);
+    lastT = now;
+
+    if (waveActive){
+      spawnTimer -= dt;
+      while (spawnQueue.length > 0 && spawnTimer <= 0){
+        spawnEnemy();
+        spawnTimer += 0.3;
+      }
+      if (spawnQueue.length === 0 && enemies.length === 0){
+        waveActive = false;
+        money += 10;
+        hud(); cards();
+      }
+    }
+
+    updEnemies(dt);
+    updTowers(dt);
+    updEffects(dt);
+    updParts(dt);
+    draw();
+  }
+  rafId = requestAnimationFrame(loop);
+}
+
+function tapCell(px, py){
+  if (state !== 'playing') return;
+  var col = Math.floor((px - OX)/CELL);
+  var row = Math.floor((py - OY)/CELL);
+  if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return;
+
+  var key = col + ',' + row;
+  var existing = null;
+  for (var i = 0; i < towers.length; i++){
+    if (towers[i].col === col && towers[i].row === row){ existing = towers[i]; break; }
+  }
+  for (var i = 0; i < towers.length; i++) towers[i].selected = false;
+
+  if (existing){
+    existing.selected = true;
+    if (existing.level >= 3) return;
+    var cost = Math.floor(DEFS[existing.type].cost * existing.level * 1.3);
+    if (money < cost) return;
+    money -= cost;
+    existing.level++;
+    existing.damage *= 1.3;
+    existing.range *= 1.04;
+    existing.rate *= 0.96;
+    var cx = OX + (col+0.5)*CELL, cy = OY + (row+0.5)*CELL;
+    for (var k = 0; k < 15; k++){
+      var a = Math.random()*Math.PI*2;
+      parts.push({ x: cx, y: cy, vx: Math.cos(a)*140, vy: Math.sin(a)*140,
+        life: 0.5, maxLife: 0.5, color: '#ffd700', size: 5 });
+    }
+    hud(); cards();
+    return;
+  }
+
+  if (!selected) return;
+  if (PATH_SET[key]) return;
+  var def = DEFS[selected];
+  if (money < def.cost) return;
+  money -= def.cost;
+  towers.push({
+    col: col, row: row, type: selected, level: 1,
+    damage: def.damage, range: def.range, rate: def.rate,
+    cd: 0, angle: -Math.PI/2, selected: false
+  });
+
+  var cx = OX + (col+0.5)*CELL, cy = OY + (row+0.5)*CELL;
+  for (var k = 0; k < 14; k++){
+    var a = Math.random()*Math.PI*2;
+    parts.push({ x: cx, y: cy, vx: Math.cos(a)*180, vy: Math.sin(a)*180,
+      life: 0.45, maxLife: 0.45, color: def.color, size: 5 });
+  }
+  hud(); cards();
+}
+
+/* ============ INPUT ============ */
+var pDown = null;
+
+canvas.addEventListener('pointerdown', function(e){
+  e.preventDefault();
+  var r = canvas.getBoundingClientRect();
+  pDown = { x: e.clientX - r.left, y: e.clientY - r.top, t: Date.now() };
+}, { passive: false });
+
+canvas.addEventListener('pointerup', function(e){
+  e.preventDefault();
+  if (!pDown) return;
+  var r = canvas.getBoundingClientRect();
+  var px = e.clientX - r.left, py = e.clientY - r.top;
+  var dx = px - pDown.x, dy = py - pDown.y;
+  var dist = Math.sqrt(dx*dx + dy*dy);
+  var dt = Date.now() - pDown.t;
+  pDown = null;
+  if (dist < 30 && dt < 700) tapCell(px, py);
+}, { passive: false });
+
+canvas.addEventListener('pointercancel', function(){ pDown = null; });
+
+if (!window.PointerEvent){
+  canvas.addEventListener('touchstart', function(e){
+    e.preventDefault();
+    var r = canvas.getBoundingClientRect();
+    var t = e.changedTouches[0];
+    pDown = { x: t.clientX - r.left, y: t.clientY - r.top, t: Date.now() };
+  }, { passive: false });
+  canvas.addEventListener('touchend', function(e){
+    e.preventDefault();
+    if (!pDown) return;
+    var r = canvas.getBoundingClientRect();
+    var t = e.changedTouches[0];
+    var px = t.clientX - r.left, py = t.clientY - r.top;
+    var dx = px - pDown.x, dy = py - pDown.y;
+    var dist = Math.sqrt(dx*dx + dy*dy);
+    var dt = Date.now() - pDown.t;
+    pDown = null;
+    if (dist < 30 && dt < 700) tapCell(px, py);
+  }, { passive: false });
+}
+
+function bindTap(el, fn){
+  var lastFire = 0;
+  function fire(e){
+    var now = Date.now();
+    if (now - lastFire < 350) return;
+    lastFire = now;
+    if (e.cancelable !== false && e.preventDefault) e.preventDefault();
+    e.stopPropagation();
+    fn();
+  }
+  el.addEventListener('click', fire);
+  el.addEventListener('touchstart', fire, { passive: false });
+}
+
+var cardList = document.querySelectorAll('.card[data-type]');
+for (var i = 0; i < cardList.length; i++){
+  (function(card){
+    var type = card.getAttribute('data-type');
+    bindTap(card, function(){
+      if (state !== 'playing') return;
+      selected = (selected === type) ? null : type;
+      cards();
+    });
+  })(cardList[i]);
+}
+
+bindTap(document.getElementById('waveBtn'), function(){
+  if (state !== 'playing') return;
+  if (waveActive) return;
+  startWave();
+});
+
+var startLock = false;
+function tryStart(){
+  if (startLock) return;
+  startLock = true;
+  setTimeout(function(){ startLock = false; }, 500);
+  startGame();
+}
+bindTap(document.getElementById('startBtn'), tryStart);
+
+/* Reset bank */
+var resetLock = false;
+document.getElementById('resetBtn').addEventListener('click', function(e){
+  e.preventDefault();
+  e.stopPropagation();
+  if (resetLock) return;
+  resetLock = true;
+  setTimeout(function(){ resetLock = false; }, 500);
+  if (confirm('Точно сбросить банк?')){
+    bank = 0;
+    saveBank();
+    updateBankUI();
+    hud();
+  }
+});
+document.getElementById('resetBtn').addEventListener('touchstart', function(e){
+  e.preventDefault();
+  e.stopPropagation();
+  if (resetLock) return;
+  resetLock = true;
+  setTimeout(function(){ resetLock = false; }, 500);
+  if (confirm('Точно сбросить банк?')){
+    bank = 0;
+    saveBank();
+    updateBankUI();
+    hud();
+  }
+}, { passive: false });
+
+/* ============ START / END ============ */
+function startGame(){
+  resetGame();
+  state = 'playing';
+  document.getElementById('ov').classList.add('hide');
+  lastT = performance.now();
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(loop);
+}
+
+function gameOver(){
+  state = 'gameover';
+
+  // === МЕТА-ПРОГРЕССИЯ: перенос денег в банк ===
+  var leftover = money;             // что осталось на руках
+  var waveBonus = wave * 10;        // бонус за волны
+  var earned = leftover + waveBonus;
+  var oldBank = bank;
+  bank += earned;
+  saveBank();
+  updateBankUI();
+
+  var waves = wave;
+  var title, color;
+  if (waves >= 20){ title = '🏆 ЛЕГЕНДА'; color = '#ffd700'; }
+  else if (waves >= 15){ title = '💎 МАСТЕР'; color = '#66e0ff'; }
+  else if (waves >= 10){ title = '🔥 ВЫЖИЛ'; color = '#ff8800'; }
+  else if (waves >= 6){ title = '💪 КРЕПКИЙ'; color = '#88ff88'; }
+  else if (waves >= 3){ title = '🌱 НАЧАЛО'; color = '#c9d1d9'; }
+  else { title = '💀 УНИЧТОЖЕН'; color = '#666'; }
+
+  // Скрываем info и bankBox, показываем результат
+  document.getElementById('bankBox').style.display = 'none';
+  document.getElementById('ovInfo').style.display = 'none';
+
+  // Удаляем старый блок с результатом если есть
+  var oldResult = document.getElementById('bankResult');
+  if (oldResult) oldResult.parentNode.removeChild(oldResult);
+
+  // Создаём блок результата
+  var res = document.createElement('div');
+  res.className = 'bank-result';
+  res.id = 'bankResult';
+  res.innerHTML =
+    '<div class="row"><span>Остаток на руках:</span><span class="val" style="color:#ffd700">' + leftover + '💰</span></div>' +
+    '<div class="row"><span>Бонус за волны (×10):</span><span class="val" style="color:#ffd700">' + waveBonus + '💰</span></div>' +
+    '<div class="row total"><span>🏦 Банк:</span><span class="val">' + oldBank + ' → ' + bank + '💰</span></div>';
+
+  var ovText = document.getElementById('ovText');
+  ovText.parentNode.insertBefore(res, ovText.nextSibling);
+
+  document.getElementById('ovTitle').textContent = '💀 КОНЕЦ';
+  document.getElementById('ovTitle').style.color = '#ff2222';
+  document.getElementById('ovText').innerHTML =
+    '<span style="color:' + color + ';font-size:18px;font-weight:bold">' + title + '</span><br>' +
+    'Волн пройдено: <b>' + waves + '</b>';
+  document.getElementById('startBtn').textContent = 'ЕЩЁ РАЗ';
+  document.getElementById('ov').classList.remove('hide');
+}
+
+/* ============ INIT ============ */
+loadBank();
+updateBankUI();
+
+window.addEventListener('resize', function(){ resize(); if (state==='idle') draw(); });
+window.addEventListener('orientationchange', function(){
+  setTimeout(function(){ resize(); if (state==='idle') draw(); }, 250);
+});
+
+resize();
+resetGame();
+draw();
+
+})();
+</script>
+</body>
+</html>
